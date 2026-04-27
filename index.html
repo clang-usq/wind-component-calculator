@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wind Component Visualiser</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #18212b;
+      --muted: #5d6b7a;
+      --border: #d8e0ea;
+      --accent: #0f6cbd;
+      --shadow: 0 12px 30px rgba(18, 39, 63, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(15, 108, 189, 0.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      width: min(1100px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 2rem 0;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 1.5rem;
+    }
+
+    .panel__header {
+      margin-bottom: 1rem;
+    }
+
+    .panel__header h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+    }
+
+    .panel__header p {
+      margin: 0.5rem 0 0;
+      color: var(--muted);
+    }
+
+    .chart {
+      width: 100%;
+      height: 420px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f2f6fb 100%);
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 1rem, 1100px);
+        padding: 1rem 0;
+      }
+
+      .panel {
+        padding: 1rem;
+      }
+
+      .chart {
+        height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="panel">
+      <header class="panel__header">
+        <h1>Wind Component Visualiser</h1>
+        <p>
+          <span>\(\Delta t_{NS}\)</span>
+          <input id="deltaTVns" style="display: inline;" type="number" value="20" step="0.01">\(\mu s\)
+        </p>
+        <p>
+          <span>\(\Delta t_{EW}\)</span>
+          <input id="deltaTVew" type="number" value="34" step="0.01">\(\mu s\)
+        </p>
+        <p>
+          <span id="velocityFormula"></span>
+        </p>
+        <p>
+          <span id="magnitudeFormula"></span>
+        </p>
+        <p>
+          <span id="thetaFormula"></span>
+        </p>
+      </header>
+
+      <div id="chart" class="chart" aria-label="Chart area"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: {
+      fontCache: 'global'
+    }
+  };
+</script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+  <script>
+    const chartElement = document.getElementById("chart");
+    const chart = echarts.init(chartElement);
+    let theta_degrees = 0;
+    let v_mag = 0;
+    let v_axis_ns = 0;
+    let v_axis_ew = 0;
+
+    let deltaT_ew = 0;
+    let deltaT_ns = 0;
+
+    //event handlers
+    document.getElementById('deltaTVns').addEventListener('input', rebuildChart);
+
+    document.getElementById('deltaTVew').addEventListener("input", rebuildChart);
+
+    const option = {
+    	title: {
+    		text: "Wind Chart - Ultrasonic Chart",
+    		left: "center"
+    	},
+    	angleAxis: [
+    		{
+    			type : 'value',
+    			min: 0,
+    			max: 360,
+    			startAngle: 90,
+    		},
+
+    	],
+    	radiusAxis: {
+    		min: 0,
+    		max: 30,
+    	},
+    	polar: {},
+    	series: [
+    		{
+    		type: 'line',
+    		data: [
+    			{
+    				value: [0, theta_degrees],
+    				symbol: 'none'
+    			},
+    			{
+    				value: [v_mag, theta_degrees],
+    				symbol: 'arrow',
+    				symbolSize: 15,
+    				symbolRotate: -theta_degrees,
+    			}
+    		],
+    		coordinateSystem: 'polar',
+    		symbol : ['none', 'circle'],
+    		symbolSize: 15,
+    		},
+    	]
+    };
+
+    function axisVelocityAverage(deltaT_ns, deltaT_ew)
+    {
+    	//average the return of the 8 pulses
+
+    	deltaT_ns = deltaT_ns * 1e-6;
+    	deltaT_ew = deltaT_ew * 1e-6;
+    	//average the return of the opposite direction 8 pulses
+    	// d/(c + v_axis) where d - distance between ultrasonic sensors, c is the constant for wind speed and v_axis
+    	const d = 0.1; //10cm between USensors
+    	const c = 343; // ~343m/s in air
+
+
+    	//delta_t  - time forward - time reverse
+    	//do calc here to find the change in time on each axis - below is fixed numbers for demo calcing
+
+
+    	//change in t_axis for ns and ew
+
+
+    	//quadratic
+    	v_axis_ns = (-d + Math.sqrt(d * d + c * c * deltaT_ns * deltaT_ns)) / deltaT_ns;
+
+    	v_axis_ew = (-d + Math.sqrt(d * d + c * c * deltaT_ew * deltaT_ew)) / deltaT_ew;
+
+    	//for checking math
+    	console.log(v_axis_ns);
+    	console.log(v_axis_ew);
+
+
+    	//find vector magnitude
+    	v_mag = Math.sqrt((v_axis_ns * v_axis_ns) + (v_axis_ew * v_axis_ew));
+
+    	//find wind direction -- this is in radians so need to convert to angle
+    	const theta = Math.atan2(v_axis_ns, v_axis_ew);
+    	theta_degrees = theta * 180/Math.PI;
+
+    	console.log(theta_degrees);
+
+    	console.log(v_mag);
+    }
+
+    function updateFormulaMath(deltaVns, deltaVew) {
+    	document.getElementById('velocityFormula').textContent =
+    		`$$v_{NS} = \\frac{-0.1 + \\sqrt{0.1^2 + 343^2 (${deltaVns} \\times 10^{-6})^2}}{${deltaVns} \\times 10^{-6}} = ${v_axis_ns.toFixed(2)}\\text{ m/s}$$` +
+    		`$$v_{EW} = \\frac{-0.1 + \\sqrt{0.1^2 + 343^2 (${deltaVew} \\times 10^{-6})^2}}{${deltaVew} \\times 10^{-6}} = ${v_axis_ew.toFixed(2)}\\text{ m/s}$$`;
+
+    	document.getElementById('magnitudeFormula').textContent =
+    		`$$\\vec{V} = \\sqrt{${v_axis_ns.toFixed(2)}^2 + ${v_axis_ew.toFixed(2)}^2} = ${v_mag.toFixed(2)}\\text{ m/s}$$`;
+
+    	document.getElementById('thetaFormula').textContent =
+    		`$$\\theta = \\operatorname{atan2}(${v_axis_ns.toFixed(2)}, ${v_axis_ew.toFixed(2)}) = ${theta_degrees.toFixed(1)}^\\circ$$`;
+
+    	if (window.MathJax?.typesetPromise) {
+    		MathJax.typesetPromise([
+    			document.getElementById('velocityFormula'),
+    			document.getElementById('magnitudeFormula'),
+    			document.getElementById('thetaFormula')
+    		]);
+    	}
+    }
+
+    function rebuildChart(){
+    	const deltaVns = Number(document.getElementById('deltaTVns').value);
+    	console.log(deltaVns);
+
+    	const deltaVew = Number(document.getElementById('deltaTVew').value);
+    	console.log(deltaVew);
+
+    	if (!deltaVns || !deltaVew) {
+    		return;
+    	}
+
+    	axisVelocityAverage(deltaVns, deltaVew);
+    	updateFormulaMath(deltaVns, deltaVew);
+
+    	chart.setOption({
+    			series: [
+    				{
+    					data: [
+    						{
+    							value: [0, theta_degrees],
+    							symbol: 'none'
+    						},
+    						{
+    							value: [v_mag, theta_degrees],
+    							symbol: 'arrow',
+    							symbolSize: 15,
+    							symbolRotate: -theta_degrees,
+    						}
+    					]
+    				}
+    			]
+    		});
+    }
+
+
+    chart.setOption(option);
+    rebuildChart();
+
+    window.addEventListener("resize", () => {
+    	chart.resize();
+    });
+  </script>
+</body>
+</html>
